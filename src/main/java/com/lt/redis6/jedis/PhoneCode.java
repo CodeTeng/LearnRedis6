@@ -47,10 +47,6 @@ public class PhoneCode {
         // 验证码的key
         String codeKey = "VerifyCode" + phone + ":code";
 
-        // 验证码放到redis中，设置过期时间
-        String code = getCode();
-        jedis.setex(codeKey, 120, code);
-
         // 每个手机每天只能发送三次
         String countPhone = jedis.get(countKey);
         if (countPhone == null) {
@@ -65,7 +61,14 @@ public class PhoneCode {
             // 不能再发送
             System.out.println("今天发送次数已经超过三次，不能再发送了");
             jedis.close();
+            // 后面代码不再执行 验证码不再执行
+            return;
         }
+
+        // 验证码放到redis中，设置过期时间
+        String code = getCode();
+        jedis.setex(codeKey, 120, code);
+
     }
 
     /**
