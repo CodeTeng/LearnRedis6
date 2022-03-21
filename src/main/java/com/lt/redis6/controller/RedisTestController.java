@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @description:
@@ -30,5 +32,37 @@ public class RedisTestController {
             return name;
         }
         return null;
+    }
+
+    @GetMapping("/testLock")
+    public void testLock() {
+        // 1.从redis中获取锁，setnx 并设置过期时间
+        String uuid = UUID.randomUUID().toString();
+        Boolean lock = redisTemplate.opsForValue().setIfAbsent("lock", uuid, 20, TimeUnit.SECONDS);
+        if (lock) {
+            // 2.1查询redis中的num值
+            String value = (String) redisTemplate.opsForValue().get("num");
+            // 2.2没有的话直接返回
+            if (value == null) {
+                return;
+            }
+            // 2.3有值就转换为int
+            int num = Integer.parseInt(value);
+            // 2.4把redis中的num+1
+            redisTemplate.opsForValue().set("num", ++num);
+            String lockUUID = (String) redisTemplate.opsForValue().get("lock");
+            if (uuid.equals(lockUUID)) {
+                // 2.5释放锁
+                redisTemplate.delete("lock");
+            }
+        } else {
+            // 获取锁失败
+            try {
+                Thread.sleep(100);
+                testLock();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 }
